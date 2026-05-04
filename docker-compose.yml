@@ -1,0 +1,86 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: mindcare-db
+    environment:
+      POSTGRES_USER: mindcare
+      POSTGRES_PASSWORD: mindcare
+      POSTGRES_DB: mindcare_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mindcare"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: mindcare-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend
+  backend:
+    build: ./backend
+    container_name: mindcare-api
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://mindcare:mindcare@postgres:5432/mindcare_db
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Celery Worker (async tasks)
+  celery:
+    build: ./backend
+    container_name: mindcare-celery
+    command: celery -A app.tasks worker --loglevel=info
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://mindcare:mindcare@postgres:5432/mindcare_db
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_GEMINI_API_KEY: ${GEMINI_API_KEY}
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    container_name: mindcare-frontend
+    ports:
+      - "3000:3000"
+    env_file: ./.env
+    environment:
+      NEXT_PUBLIC_GEMINI_API_KEY: ${GEMINI_API_KEY}
+      INTERNAL_API_URL: http://backend:8000
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

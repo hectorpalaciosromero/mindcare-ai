@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+venv/
+__pycache__/
+*.pyc
+
+# Environment (all .env files at any level)
+.env
+.env.local
+.env.production
+.env.development
+
+# Build
+.next/
+dist/
+*.egg-info/
+next-env.d.ts
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes
+postgres_data/
+
+# Alembic compiled
+alembic/versions/*.pyc
+
+# Testing / Debug
+.pytest_cache/
+.coverage
+htmlcov/
+
+# AI assistant config (should not be committed)
+AGENTS.md
+CLAUDE.md

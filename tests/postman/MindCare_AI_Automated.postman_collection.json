@@ -1,0 +1,311 @@
+{
+	"info": {
+		"_postman_id": "b3e6183a-4a25-423c-a9a3-5c028ea7cf81",
+		"name": "MindCare AI — E2E Automated Suite",
+		"description": "Suite E2E completa para MindCare AI. Cubre Auth multi-rol, Patient Portal, Psychologist Portal, Admin Portal, y AI Chat. Requiere seed data.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "0. Health",
+			"item": [
+				{
+					"name": "0.1 Root Health Check",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Service healthy', () => pm.expect(pm.response.json().status).to.eql('healthy'));"], "type": "text/javascript"}}],
+					"request": {"method": "GET", "url": {"raw": "{{base_url}}/", "host": ["{{base_url}}"], "path": [""]}}
+				},
+				{
+					"name": "0.2 API Health",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Status ok', () => pm.expect(pm.response.json().status).to.eql('ok'));"], "type": "text/javascript"}}],
+					"request": {"method": "GET", "url": {"raw": "{{base_url}}/api/health", "host": ["{{base_url}}"], "path": ["api", "health"]}}
+				}
+			]
+		},
+		{
+			"name": "1. Auth & Registration",
+			"item": [
+				{
+					"name": "1.1 Register New Patient",
+					"event": [
+						{"listen": "prerequest", "script": {"exec": ["pm.environment.set('test_email', 'e2e_' + Date.now() + '@correo.com');"], "type": "text/javascript"}},
+						{"listen": "test", "script": {"exec": ["pm.test('Status 201', () => pm.response.to.have.status(201));", "pm.test('Returns token', () => pm.expect(pm.response.json().access_token).to.be.a('string'));", "pm.test('Role is patient', () => pm.expect(pm.response.json().role).to.eql('patient'));"], "type": "text/javascript"}}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\"email\": \"{{test_email}}\", \"password\": \"SecurePass123\", \"role\": \"patient\", \"first_name\": \"E2E\", \"last_name\": \"Test\", \"age\": 25}", "options": {"raw": {"language": "json"}}},
+						"url": {"raw": "{{base_url}}/api/auth/register", "host": ["{{base_url}}"], "path": ["api", "auth", "register"]}
+					}
+				},
+				{
+					"name": "1.2 Login — Patient",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Save patient token', function () {", "    var json = pm.response.json();", "    pm.expect(json.access_token).to.be.a('string');", "    pm.environment.set('patient_token', json.access_token);", "});"], "type": "text/javascript"}}],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\"email\": \"america.singer@correo.com\", \"password\": \"1234567\"}", "options": {"raw": {"language": "json"}}},
+						"url": {"raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api", "auth", "login"]}
+					}
+				},
+				{
+					"name": "1.3 Patient Profile (GET /me)",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Has email', () => pm.expect(pm.response.json().email).to.be.a('string'));", "pm.test('Has role', () => pm.expect(pm.response.json().role).to.eql('patient'));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{patient_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api", "auth", "me"]}
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Patient Portal",
+			"item": [
+				{
+					"name": "2.1 Dashboard KPIs",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Has streak', () => pm.expect(pm.response.json().current_streak).to.be.a('number'));", "pm.test('Has general_state', () => pm.expect(pm.response.json().general_state).to.be.a('string'));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{patient_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/api/patients/dashboard", "host": ["{{base_url}}"], "path": ["api", "patients", "dashboard"]}
+					}
+				},
+				{
+					"name": "2.2 Submit Check-in",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Created', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));", "pm.test('Has emotion', () => pm.expect(pm.response.json().emotion).to.be.a('string'));", "pm.test('Has AI analysis', () => pm.expect(pm.response.json().ai_analysis).to.be.an('object'));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{patient_token}}", "type": "string"}]},
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\"emotion\": \"Tranquilo\", \"intensity\": 6, \"note\": \"Check-in E2E automatizado.\"}", "options": {"raw": {"language": "json"}}},
+						"url": {"raw": "{{base_url}}/api/patients/checkins", "host": ["{{base_url}}"], "path": ["api", "patients", "checkins"]}
+					}
+				},
+				{
+					"name": "2.3 Check-in History",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{patient_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/api/patients/checkins", "host": ["{{base_url}}"], "path": ["api", "patients", "checkins"]}
+					}
+				},
+				{
+					"name": "2.4 Available Exercises",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));", "pm.test('Extract exercise_id', function () {", "    var list = pm.response.json();", "    if (list.length > 0) { pm.environment.set('exercise_id', list[0].id); }", "});"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{patient_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/api/patients/exercises", "host": ["{{base_url}}"], "path": ["api", "patients", "exercises"]}
+					}
+				},
+				{
+					"name": "2.5 Complete Exercise",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));", "pm.test('Has status', () => pm.expect(pm.response.json().status).to.be.a('string'));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{patient_token}}", "type": "string"}]},
+						"method": "POST",
+						"url": {"raw": "{{base_url}}/api/patients/exercises/{{exercise_id}}/complete", "host": ["{{base_url}}"], "path": ["api", "patients", "exercises", "{{exercise_id}}", "complete"]}
+					}
+				},
+				{
+					"name": "2.6 Patient Sessions",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{patient_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/api/patients/sessions", "host": ["{{base_url}}"], "path": ["api", "patients", "sessions"]}
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Psychologist Portal",
+			"item": [
+				{
+					"name": "3.0 Login — Psychologist",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Save psy token', function () {", "    pm.environment.set('psy_token', pm.response.json().access_token);", "});"], "type": "text/javascript"}}],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\"email\": \"f.palacios@mindcare.dev\", \"password\": \"1234567\"}", "options": {"raw": {"language": "json"}}},
+						"url": {"raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api", "auth", "login"]}
+					}
+				},
+				{
+					"name": "3.1 Dashboard",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Has active_patients', () => pm.expect(pm.response.json().active_patients).to.be.a('number'));", "pm.test('Has pending_alerts', () => pm.expect(pm.response.json().pending_alerts).to.be.a('number'));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{psy_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/api/psychologists/dashboard", "host": ["{{base_url}}"], "path": ["api", "psychologists", "dashboard"]}
+					}
+				},
+				{
+					"name": "3.2 Patient List",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));", "pm.test('Extract patient_id', function () {", "    var list = pm.response.json();", "    if (list.length > 0) { pm.environment.set('patient_id', list[0].id); }", "});"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{psy_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/api/psychologists/patients", "host": ["{{base_url}}"], "path": ["api", "psychologists", "patients"]}
+					}
+				},
+				{
+					"name": "3.3 Patient Detail",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Has name', () => pm.expect(pm.response.json().name).to.be.a('string'));", "pm.test('Has email', () => pm.expect(pm.response.json().email).to.be.a('string'));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{psy_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/api/psychologists/patients/{{patient_id}}", "host": ["{{base_url}}"], "path": ["api", "psychologists", "patients", "{{patient_id}}"]}
+					}
+				},
+				{
+					"name": "3.4 Patient Check-ins",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{psy_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/api/psychologists/patients/{{patient_id}}/checkins", "host": ["{{base_url}}"], "path": ["api", "psychologists", "patients", "{{patient_id}}", "checkins"]}
+					}
+				},
+				{
+					"name": "3.5 Patient Evolution Chart",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Is 7-day array', () => pm.expect(pm.response.json()).to.be.an('array').with.lengthOf(7));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{psy_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/api/psychologists/patients/{{patient_id}}/evolution", "host": ["{{base_url}}"], "path": ["api", "psychologists", "patients", "{{patient_id}}", "evolution"]}
+					}
+				},
+				{
+					"name": "3.6 Analytics — Daily Trend",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{psy_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/api/psychologists/analytics/trend", "host": ["{{base_url}}"], "path": ["api", "psychologists", "analytics", "trend"]}
+					}
+				},
+				{
+					"name": "3.7 Analytics — Emotion Distribution",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{psy_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/api/psychologists/analytics/emotions", "host": ["{{base_url}}"], "path": ["api", "psychologists", "analytics", "emotions"]}
+					}
+				},
+				{
+					"name": "3.8 AI Alerts",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));", "pm.test('Extract alert_id', function () {", "    var list = pm.response.json();", "    if (list.length > 0) { pm.environment.set('alert_id', list[0].id); }", "});"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{psy_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/api/psychologists/alerts", "host": ["{{base_url}}"], "path": ["api", "psychologists", "alerts"]}
+					}
+				},
+				{
+					"name": "3.9 Acknowledge Alert",
+					"event": [{"listen": "test", "script": {"exec": ["if (!pm.environment.get('alert_id')) { pm.test.skip('No alert_id available'); return; }", "pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Acknowledged', () => pm.expect(pm.response.json().status).to.eql('acknowledged'));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{psy_token}}", "type": "string"}]},
+						"method": "PATCH",
+						"url": {"raw": "{{base_url}}/api/psychologists/alerts/{{alert_id}}/acknowledge", "host": ["{{base_url}}"], "path": ["api", "psychologists", "alerts", "{{alert_id}}", "acknowledge"]}
+					}
+				},
+				{
+					"name": "3.10 Generate AI Report",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Accepted', () => pm.expect(pm.response.code).to.be.oneOf([200, 400]));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{psy_token}}", "type": "string"}]},
+						"method": "POST",
+						"url": {"raw": "{{base_url}}/api/psychologists/patients/{{patient_id}}/generate-report", "host": ["{{base_url}}"], "path": ["api", "psychologists", "patients", "{{patient_id}}", "generate-report"]}
+					}
+				},
+				{
+					"name": "3.11 Weekly Reports",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{psy_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/api/psychologists/reports", "host": ["{{base_url}}"], "path": ["api", "psychologists", "reports"]}
+					}
+				},
+				{
+					"name": "3.12 Sessions List",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{psy_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/api/psychologists/sessions", "host": ["{{base_url}}"], "path": ["api", "psychologists", "sessions"]}
+					}
+				},
+				{
+					"name": "3.13 Create Session",
+					"event": [
+						{"listen": "prerequest", "script": {"exec": ["var d = new Date(); d.setDate(d.getDate() + 7);", "pm.environment.set('future_date', d.toISOString());"], "type": "text/javascript"}},
+						{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Has session id', () => pm.expect(pm.response.json().id).to.be.a('string'));", "pm.test('Status scheduled', () => pm.expect(pm.response.json().status).to.eql('scheduled'));"], "type": "text/javascript"}}
+					],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{psy_token}}", "type": "string"}]},
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\"patient_id\": \"{{patient_id}}\", \"scheduled_at\": \"{{future_date}}\", \"notes\": \"Sesión programada via E2E suite\"}", "options": {"raw": {"language": "json"}}},
+						"url": {"raw": "{{base_url}}/api/psychologists/sessions", "host": ["{{base_url}}"], "path": ["api", "psychologists", "sessions"]}
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Admin Portal",
+			"item": [
+				{
+					"name": "4.0 Login — Admin",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Save admin token', function () {", "    pm.environment.set('admin_token', pm.response.json().access_token);", "});"], "type": "text/javascript"}}],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\"email\": \"hpalacios@mindcare.com\", \"password\": \"admin123\"}", "options": {"raw": {"language": "json"}}},
+						"url": {"raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api", "auth", "login"]}
+					}
+				},
+				{
+					"name": "4.1 Admin Dashboard",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Has metrics', () => pm.expect(pm.response.json().metrics).to.be.an('object'));", "pm.test('Has recent_users', () => pm.expect(pm.response.json().recent_users).to.be.an('array'));", "pm.test('Extract user_id', function () {", "    var users = pm.response.json().recent_users;", "    var target = users.find(u => u.role !== 'admin');", "    if (target) { pm.environment.set('user_id', target.id); }", "});"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{admin_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/api/admin/dashboard", "host": ["{{base_url}}"], "path": ["api", "admin", "dashboard"]}
+					}
+				},
+				{
+					"name": "4.2 Toggle User Active",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Has is_active', () => pm.expect(pm.response.json()).to.have.property('is_active'));"], "type": "text/javascript"}}],
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{admin_token}}", "type": "string"}]},
+						"method": "PATCH",
+						"url": {"raw": "{{base_url}}/api/admin/users/{{user_id}}/toggle-active", "host": ["{{base_url}}"], "path": ["api", "admin", "users", "{{user_id}}", "toggle-active"]}
+					}
+				}
+			]
+		},
+		{
+			"name": "5. AI Chat",
+			"item": [
+				{
+					"name": "5.1 Chat REST",
+					"event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Has reply', () => pm.expect(pm.response.json().reply).to.be.a('string'));"], "type": "text/javascript"}}],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\"message\": \"¿Qué servicios ofrece MindCare?\", \"history\": []}", "options": {"raw": {"language": "json"}}},
+						"url": {"raw": "{{base_url}}/api/chat", "host": ["{{base_url}}"], "path": ["api", "chat"]}
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{"key": "base_url", "value": "http://localhost:8000"}
+	]
+}
